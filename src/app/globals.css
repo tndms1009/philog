@@ -24,3 +24,16 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+@media (max-width: 768px) {
+  .main-wrap {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+}
+@media (max-width: 768px) {
+  .grid-wrap {
+    marginleft: -1rem;
+    marginright: -1rem;
+    width: calc(100% + 2rem);
+  }
+}
