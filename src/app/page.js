@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -14,8 +14,29 @@ export default function Home() {
   const [view, setView] = useState("grid");
   const [selectedPost, setSelectedPost] = useState(null);
   const [selectedTag, setSelectedTag] = useState(null);
+  const [scrollToPostId, setScrollToPostId] = useState(null);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const bottomRef = useRef(null);
+  const PAGE_SIZE = 10;
 
   const [user, setUser] = useState(null);
+  const touchStartX = useRef(null);
+
+  function handleTouchStart(e) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e) {
+    if (touchStartX.current === null) return;
+    const diff = e.changedTouches[0].clientX - touchStartX.current;
+    if (diff > 80 && selectedPost) {
+      setSelectedPost(null);
+      setView("grid");
+    }
+    touchStartX.current = null;
+  }
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
@@ -31,30 +52,56 @@ export default function Home() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    window.location.reload();
-  }
+  useEffect(() => {
+    if (!bottomRef.current || !hasMore || loadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          const nextPage = page + 1;
+          setPage(nextPage);
+          fetchPosts(nextPage, false);
+        }
+      },
+      { threshold: 0.1 },
+    );
+
+    observer.observe(bottomRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, page]);
 
   async function handleLogout() {
     await supabase.auth.signOut();
     window.location.reload();
   }
-  async function fetchPosts() {
-    setLoading(true);
+
+  async function fetchPosts(pageNum = 0, replace = true) {
+    if (pageNum === 0) setLoading(true);
+    else setLoadingMore(true);
+
+    const from = pageNum * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
     const { data, error } = await supabase
       .from("posts")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
     if (error) {
       console.error("불러오기 실패:", error);
     } else {
-      setPosts(data);
+      if (replace) {
+        setPosts(data);
+      } else {
+        setPosts((prev) => [...prev, ...data]);
+      }
+      setHasMore(data.length === PAGE_SIZE);
     }
-    setLoading(false);
-  }
 
+    if (pageNum === 0) setLoading(false);
+    else setLoadingMore(false);
+  }
   function formatDate(dateStr) {
     if (!dateStr) return "";
     const d = new Date(dateStr);
@@ -74,6 +121,8 @@ export default function Home() {
     <div
       style={{ maxWidth: "900px", margin: "0 auto", padding: "0 1.5rem" }}
       className="main-wrap"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       <div
         style={{
@@ -86,7 +135,17 @@ export default function Home() {
         }}
       >
         <span
-          style={{ fontSize: "17px", fontWeight: 500, letterSpacing: "0.1em" }}
+          onClick={() => {
+            setSelectedPost(null);
+            setSelectedTag(null);
+            setView("grid");
+          }}
+          style={{
+            fontSize: "17px",
+            fontWeight: 500,
+            letterSpacing: "0.1em",
+            cursor: "pointer",
+          }}
         >
           PHILOG.
         </span>
@@ -268,7 +327,11 @@ export default function Home() {
             .map((post) => (
               <div
                 key={post.id}
-                onClick={() => setSelectedPost(post)}
+                onClick={() => {
+                  setScrollToPostId(post.id);
+                  setSelectedPost(null);
+                  setView("blog");
+                }}
                 style={{
                   position: "relative",
                   width: "100%",
@@ -283,6 +346,19 @@ export default function Home() {
               />
             ))}
         </div>
+      )}
+      <div ref={bottomRef} style={{ height: "1px" }} />
+      {loadingMore && (
+        <p
+          style={{
+            textAlign: "center",
+            padding: "1rem 0",
+            color: "#999",
+            fontSize: "13px",
+          }}
+        >
+          불러오는 중...
+        </p>
       )}
 
       {/* 블로그 뷰 */}
@@ -301,8 +377,35 @@ export default function Home() {
                 onUpdate={fetchPosts}
                 currentUserId={user?.id}
                 onTagClick={(tag) => setSelectedTag(tag)}
+                scrollToMe={scrollToPostId === post.id}
+                onScrollDone={() => setScrollToPostId(null)}
               />
             ))}
+          <div ref={bottomRef} style={{ height: "1px" }} />
+          {loadingMore && (
+            <p
+              style={{
+                textAlign: "center",
+                padding: "1rem 0",
+                color: "#999",
+                fontSize: "13px",
+              }}
+            >
+              불러오는 중...
+            </p>
+          )}
+          {!hasMore && posts.length > 0 && (
+            <p
+              style={{
+                textAlign: "center",
+                padding: "1rem 0",
+                color: "#ccc",
+                fontSize: "12px",
+              }}
+            >
+              모든 사진을 불러왔어요
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -315,13 +418,23 @@ function PostCard({
   onDeleted,
   currentUserId,
   onTagClick,
+  scrollToMe,
+  onScrollDone,
 }) {
+  const cardRef = useRef(null);
   const [editing, setEditing] = useState(false);
   const [memo, setMemo] = useState(post.memo || "");
   const [tags, setTags] = useState(post.tags || []);
   const [tagInput, setTagInput] = useState("");
   const [saving, setSaving] = useState(false);
-
+  useEffect(() => {
+    if (scrollToMe && cardRef.current) {
+      setTimeout(() => {
+        cardRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (onScrollDone) onScrollDone();
+      }, 100);
+    }
+  }, [scrollToMe]);
   function handleAddTag(e) {
     e.preventDefault();
     const trimmed = tagInput.trim().replace(/^#/, "");
@@ -368,6 +481,7 @@ function PostCard({
 
   return (
     <div
+      ref={cardRef}
       style={{
         marginBottom: "3.5rem",
         paddingBottom: "3.5rem",
@@ -377,6 +491,7 @@ function PostCard({
       <img
         src={post.image_url}
         alt=""
+        loading="lazy"
         style={{
           width: "100%",
           borderRadius: "0px",
@@ -589,6 +704,21 @@ function PostCard({
           {post.aperture && <div>ƒ {post.aperture}</div>}
           {post.shutter_speed && <div>⏱ {post.shutter_speed}</div>}
           {post.iso && <div>☀️ {post.iso}</div>}
+          {post.dynamic_range && <div>🎚️ DR {post.dynamic_range}</div>}
+          {post.white_balance && <div>⚪ {post.white_balance}</div>}
+          {post.highlight && <div>🔆 하이라이트 {post.highlight}</div>}
+          {post.shadow && <div>🌑 섀도우 {post.shadow}</div>}
+          {post.grain && <div>🌾 그레인 {post.grain}</div>}
+          {post.noise_reduction && (
+            <div>🔇 노이즈감소 {post.noise_reduction}</div>
+          )}
+          {post.sharpness && <div>🔪 선명도 {post.sharpness}</div>}
+          {post.clarity && <div>✨ 명료도 {post.clarity}</div>}
+          {post.saturation && <div>🎨 채도 {post.saturation}</div>}
+          {post.color_chrome && <div>🎭 컬러크롬 {post.color_chrome}</div>}
+          {post.color_chrome_fx_blue && (
+            <div>💙 컬러크롬FX블루 {post.color_chrome_fx_blue}</div>
+          )}
         </div>
       </div>
     </div>

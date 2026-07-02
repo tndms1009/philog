@@ -42,17 +42,39 @@ export default function Upload() {
         ],
       });
 
-      let filmMode = null;
+      let recipe = null;
       if (data?.makerNote) {
+        console.log("makerNote 존재:", data.makerNote);
         try {
-          const recipe = getRecipe(data.makerNote);
-          filmMode = recipe?.FilmMode || null;
+          recipe = getRecipe(data.makerNote);
+          console.log("필름 레시피 전체:", recipe);
         } catch (err) {
           console.log("필름 레시피 파싱 실패:", err);
         }
+      } else {
+        console.log("makerNote 없음");
       }
 
-      const finalData = { ...data, FujiFilmFilmMode: filmMode };
+      const finalData = {
+        ...data,
+        FujiFilmFilmMode: recipe?.FilmMode || null,
+        DynamicRange: recipe?.DynamicRange || null,
+        WhiteBalance: recipe?.WhiteBalance || null,
+        HighlightTone: recipe?.ShadowTone || null,
+        ShadowTone: recipe?.ShadowTone || null,
+        GrainEffect:
+          recipe?.GrainEffectSize && recipe.GrainEffectSize !== "Off"
+            ? `${recipe.GrainEffectSize} / ${recipe.GrainEffectRoughness}`
+            : recipe?.GrainEffectSize === "Off"
+              ? "Off"
+              : null,
+        NoiseReduction: recipe?.NoiseReduction || null,
+        Sharpness: recipe?.Sharpness || null,
+        Clarity: recipe?.Clarity || null,
+        Saturation: recipe?.Saturation || null,
+        ColorChromeEffect: recipe?.ColorChromeEffect || null,
+        ColorChromeFxBlue: recipe?.ColorChromeFxBlue || null,
+      };
       console.log("EXIF 데이터:", finalData);
       setExifData(finalData);
     } catch (err) {
@@ -114,6 +136,34 @@ export default function Upload() {
         taken_at: exifData?.DateTimeOriginal || null,
         user_id: user?.id || null,
         tags: tags.length > 0 ? tags : null,
+        dynamic_range: exifData?.DynamicRange || null,
+        white_balance: exifData?.WhiteBalance || null,
+        highlight:
+          exifData?.HighlightTone !== null &&
+          exifData?.HighlightTone !== undefined
+            ? String(exifData.HighlightTone)
+            : null,
+        shadow:
+          exifData?.ShadowTone !== null && exifData?.ShadowTone !== undefined
+            ? String(exifData.ShadowTone)
+            : null,
+        grain: exifData?.GrainEffect || null,
+        noise_reduction:
+          exifData?.NoiseReduction !== null &&
+          exifData?.NoiseReduction !== undefined
+            ? String(exifData.NoiseReduction)
+            : null,
+        sharpness:
+          exifData?.Sharpness !== null && exifData?.Sharpness !== undefined
+            ? String(exifData.Sharpness)
+            : null,
+        clarity:
+          exifData?.Clarity !== null && exifData?.Clarity !== undefined
+            ? String(exifData.Clarity)
+            : null,
+        saturation: exifData?.Saturation || null,
+        color_chrome: exifData?.ColorChromeEffect || null,
+        color_chrome_fx_blue: exifData?.ColorChromeFxBlue || null,
       });
 
       if (insertError) throw insertError;
@@ -160,28 +210,55 @@ export default function Upload() {
           }}
         >
           <strong>촬영 정보 (자동 인식)</strong>
-          <div>카메라: {exifData.Model || "정보 없음"}</div>
+          {exifData.Model && <div>카메라: {exifData.Model}</div>}
           {exifData.FujiFilmFilmMode && (
             <div>필름 모드: {exifData.FujiFilmFilmMode}</div>
           )}
-          <div>
-            조리개: {exifData.FNumber ? `f/${exifData.FNumber}` : "정보 없음"}
-          </div>
-          <div>
-            셔터스피드:{" "}
-            {formatShutterSpeed(exifData.ExposureTime) || "정보 없음"}
-          </div>
-          <div>ISO: {exifData.ISO || "정보 없음"}</div>
-          <div>
-            초점거리:{" "}
-            {exifData.FocalLength ? `${exifData.FocalLength}mm` : "정보 없음"}
-          </div>
-          <div>
-            촬영일시:{" "}
-            {exifData.DateTimeOriginal
-              ? new Date(exifData.DateTimeOriginal).toLocaleString()
-              : "정보 없음"}
-          </div>
+          {exifData.FNumber && <div>조리개: f/{exifData.FNumber}</div>}
+          {exifData.ExposureTime && (
+            <div>셔터스피드: {formatShutterSpeed(exifData.ExposureTime)}</div>
+          )}
+          {exifData.ISO && <div>ISO: {exifData.ISO}</div>}
+          {exifData.FocalLength && (
+            <div>초점거리: {exifData.FocalLength}mm</div>
+          )}
+          {exifData.DateTimeOriginal && (
+            <div>
+              촬영일시: {new Date(exifData.DateTimeOriginal).toLocaleString()}
+            </div>
+          )}
+          {exifData.DynamicRange && (
+            <div>다이나믹 레인지: {exifData.DynamicRange}</div>
+          )}
+          {exifData.WhiteBalance && (
+            <div>화이트밸런스: {exifData.WhiteBalance}</div>
+          )}
+          {exifData.HighlightTone !== null &&
+            exifData.HighlightTone !== undefined && (
+              <div>하이라이트: {exifData.HighlightTone}</div>
+            )}
+          {exifData.ShadowTone !== null &&
+            exifData.ShadowTone !== undefined && (
+              <div>섀도우: {exifData.ShadowTone}</div>
+            )}
+          {exifData.GrainEffect && <div>그레인: {exifData.GrainEffect}</div>}
+          {exifData.NoiseReduction !== null &&
+            exifData.NoiseReduction !== undefined && (
+              <div>노이즈감소: {exifData.NoiseReduction}</div>
+            )}
+          {exifData.Sharpness !== null && exifData.Sharpness !== undefined && (
+            <div>선명도: {exifData.Sharpness}</div>
+          )}
+          {exifData.Clarity !== null && exifData.Clarity !== undefined && (
+            <div>명료도: {exifData.Clarity}</div>
+          )}
+          {exifData?.Saturation && <div>채도: {exifData.Saturation}</div>}
+          {exifData?.ColorChromeEffect && (
+            <div>컬러크롬: {exifData.ColorChromeEffect}</div>
+          )}
+          {exifData?.ColorChromeFxBlue && (
+            <div>컬러크롬 FX 블루: {exifData.ColorChromeFxBlue}</div>
+          )}
         </div>
       )}
 
