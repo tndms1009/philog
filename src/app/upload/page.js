@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import exifr from "exifr";
 import getRecipe from "fuji-recipes";
 import { createClient } from "@supabase/supabase-js";
+import Header from "../components/Header";
+import BottomNav from "../components/BottomNav";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -44,15 +46,11 @@ export default function Upload() {
 
       let recipe = null;
       if (data?.makerNote) {
-        console.log("makerNote 존재:", data.makerNote);
         try {
           recipe = getRecipe(data.makerNote);
-          console.log("필름 레시피 전체:", recipe);
         } catch (err) {
           console.log("필름 레시피 파싱 실패:", err);
         }
-      } else {
-        console.log("makerNote 없음");
       }
 
       const finalData = {
@@ -60,7 +58,7 @@ export default function Upload() {
         FujiFilmFilmMode: recipe?.FilmMode || null,
         DynamicRange: recipe?.DynamicRange || null,
         WhiteBalance: recipe?.WhiteBalance || null,
-        HighlightTone: recipe?.ShadowTone || null,
+        HighlightTone: recipe?.HighlightTone || null,
         ShadowTone: recipe?.ShadowTone || null,
         GrainEffect:
           recipe?.GrainEffectSize && recipe.GrainEffectSize !== "Off"
@@ -75,7 +73,7 @@ export default function Upload() {
         ColorChromeEffect: recipe?.ColorChromeEffect || null,
         ColorChromeFxBlue: recipe?.ColorChromeFxBlue || null,
       };
-      console.log("EXIF 데이터:", finalData);
+
       setExifData(finalData);
     } catch (err) {
       console.log("EXIF 읽기 실패:", err);
@@ -124,15 +122,12 @@ export default function Upload() {
 
       const { error: insertError } = await supabase.from("posts").insert({
         image_url: urlData.publicUrl,
-        memo: memo,
+        memo,
         camera: exifData?.Model || null,
         film_simulation: exifData?.FujiFilmFilmMode || null,
         aperture: exifData?.FNumber ? `f/${exifData.FNumber}` : null,
         shutter_speed: formatShutterSpeed(exifData?.ExposureTime),
         iso: exifData?.ISO ? `ISO ${exifData.ISO}` : null,
-        focal_length: exifData?.FocalLength
-          ? `${exifData.FocalLength}mm`
-          : null,
         taken_at: exifData?.DateTimeOriginal || null,
         user_id: user?.id || null,
         tags: tags.length > 0 ? tags : null,
@@ -167,7 +162,7 @@ export default function Upload() {
       });
 
       if (insertError) throw insertError;
-      alert("업로드 완료!");
+
       router.push("/");
     } catch (err) {
       console.error(err);
@@ -178,165 +173,249 @@ export default function Upload() {
   }
 
   return (
-    <div
-      style={{ maxWidth: "480px", margin: "0 auto", padding: "2rem 1.5rem" }}
-    >
-      <h1 style={{ fontSize: "20px", marginBottom: "1.5rem" }}>사진 업로드</h1>
+    <div style={{ maxWidth: "900px", margin: "0 auto" }} className="main-wrap">
+      <Header />
 
-      <input
-        type="file"
-        accept="image/*"
-        onChange={handleFileChange}
-        style={{ marginBottom: "1.5rem", display: "block" }}
-      />
-
-      {preview && (
-        <img
-          src={preview}
-          alt="preview"
-          style={{ width: "100%", borderRadius: "8px", marginBottom: "1.5rem" }}
-        />
-      )}
-
-      {exifData && (
-        <div
-          style={{
-            border: "1px solid #ddd",
-            borderRadius: "8px",
-            padding: "1rem",
-            marginBottom: "1.5rem",
-            fontSize: "13px",
-            lineHeight: "1.6",
-          }}
-        >
-          <strong>촬영 정보 (자동 인식)</strong>
-          {exifData.Model && <div>카메라: {exifData.Model}</div>}
-          {exifData.FujiFilmFilmMode && (
-            <div>필름 모드: {exifData.FujiFilmFilmMode}</div>
-          )}
-          {exifData.FNumber && <div>조리개: f/{exifData.FNumber}</div>}
-          {exifData.ExposureTime && (
-            <div>셔터스피드: {formatShutterSpeed(exifData.ExposureTime)}</div>
-          )}
-          {exifData.ISO && <div>ISO: {exifData.ISO}</div>}
-          {exifData.FocalLength && (
-            <div>초점거리: {exifData.FocalLength}mm</div>
-          )}
-          {exifData.DateTimeOriginal && (
-            <div>
-              촬영일시: {new Date(exifData.DateTimeOriginal).toLocaleString()}
-            </div>
-          )}
-          {exifData.DynamicRange && (
-            <div>다이나믹 레인지: {exifData.DynamicRange}</div>
-          )}
-          {exifData.WhiteBalance && (
-            <div>화이트밸런스: {exifData.WhiteBalance}</div>
-          )}
-          {exifData.HighlightTone !== null &&
-            exifData.HighlightTone !== undefined && (
-              <div>하이라이트: {exifData.HighlightTone}</div>
-            )}
-          {exifData.ShadowTone !== null &&
-            exifData.ShadowTone !== undefined && (
-              <div>섀도우: {exifData.ShadowTone}</div>
-            )}
-          {exifData.GrainEffect && <div>그레인: {exifData.GrainEffect}</div>}
-          {exifData.NoiseReduction !== null &&
-            exifData.NoiseReduction !== undefined && (
-              <div>노이즈감소: {exifData.NoiseReduction}</div>
-            )}
-          {exifData.Sharpness !== null && exifData.Sharpness !== undefined && (
-            <div>선명도: {exifData.Sharpness}</div>
-          )}
-          {exifData.Clarity !== null && exifData.Clarity !== undefined && (
-            <div>명료도: {exifData.Clarity}</div>
-          )}
-          {exifData?.Saturation && <div>채도: {exifData.Saturation}</div>}
-          {exifData?.ColorChromeEffect && (
-            <div>컬러크롬: {exifData.ColorChromeEffect}</div>
-          )}
-          {exifData?.ColorChromeFxBlue && (
-            <div>컬러크롬 FX 블루: {exifData.ColorChromeFxBlue}</div>
-          )}
-        </div>
-      )}
-
-      <textarea
-        placeholder="오늘의 한 줄..."
-        value={memo}
-        onChange={(e) => setMemo(e.target.value)}
+      <div
         style={{
-          width: "100%",
-          minHeight: "80px",
-          padding: "12px",
-          borderRadius: "8px",
-          border: "1px solid #ddd",
-          marginBottom: "1.5rem",
-          fontSize: "14px",
-        }}
-      />
-
-      <form onSubmit={handleAddTag} style={{ marginBottom: "1rem" }}>
-        <input
-          type="text"
-          placeholder="태그 입력 후 Enter (예: 익선동, 골목)"
-          value={tagInput}
-          onChange={(e) => setTagInput(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "10px 12px",
-            borderRadius: "8px",
-            border: "1px solid #ddd",
-            fontSize: "14px",
-          }}
-        />
-      </form>
-
-      {tags.length > 0 && (
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "6px",
-            marginBottom: "1.5rem",
-          }}
-        >
-          {tags.map((tag) => (
-            <span
-              key={tag}
-              onClick={() => handleRemoveTag(tag)}
-              style={{
-                fontSize: "12px",
-                padding: "4px 10px",
-                borderRadius: "20px",
-                border: "1px solid #ccc",
-                cursor: "pointer",
-                color: "#555",
-              }}
-            >
-              #{tag} ✕
-            </span>
-          ))}
-        </div>
-      )}
-
-      <button
-        onClick={handleUpload}
-        disabled={!file || uploading}
-        style={{
-          width: "100%",
-          padding: "12px",
-          background: "#000",
-          color: "#fff",
-          border: "none",
-          borderRadius: "8px",
-          fontSize: "14px",
-          cursor: "pointer",
+          maxWidth: "480px",
+          margin: "0 auto",
+          padding: "1.5rem 1.5rem 5rem",
         }}
       >
-        {uploading ? "업로드 중..." : "업로드"}
-      </button>
+        {/* 사진 업로드 영역 */}
+        <label
+          style={{
+            display: "block",
+            width: "100%",
+            aspectRatio: preview ? "auto" : "4/3",
+            borderRadius: "12px",
+            border: preview ? "none" : "1.5px dashed var(--border-color)",
+            overflow: "hidden",
+            cursor: "pointer",
+            marginBottom: "1.25rem",
+            position: "relative",
+          }}
+        >
+          {preview ? (
+            <img
+              src={preview}
+              alt="preview"
+              style={{ width: "100%", display: "block", borderRadius: "12px" }}
+            />
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                height: "100%",
+                gap: "10px",
+                color: "var(--text-tertiary)",
+              }}
+            >
+              <svg
+                width="36"
+                height="36"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="M21 15l-5-5L5 21" />
+              </svg>
+              <span style={{ fontSize: "14px" }}>사진을 선택해주세요</span>
+              <span style={{ fontSize: "12px" }}>JPG · HEIC · PNG</span>
+            </div>
+          )}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            style={{ display: "none" }}
+          />
+        </label>
+
+        {/* 사진 다시 선택 버튼 */}
+        {preview && (
+          <label
+            style={{
+              display: "block",
+              textAlign: "center",
+              fontSize: "12px",
+              color: "var(--text-tertiary)",
+              cursor: "pointer",
+              marginBottom: "1.25rem",
+              textDecoration: "underline",
+            }}
+          >
+            사진 다시 선택
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              style={{ display: "none" }}
+            />
+          </label>
+        )}
+
+        {/* EXIF 정보 */}
+        {exifData && (
+          <div
+            style={{
+              background: "var(--nav-border)",
+              borderRadius: "10px",
+              padding: "1rem",
+              marginBottom: "1.25rem",
+              fontSize: "12px",
+              lineHeight: "1.8",
+              color: "var(--text-secondary)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "11px",
+                color: "var(--text-tertiary)",
+                marginBottom: "6px",
+                letterSpacing: "0.06em",
+              }}
+            >
+              촬영 정보 · 자동 인식
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "2px 12px",
+              }}
+            >
+              {exifData.Model && <div>📷 {exifData.Model}</div>}
+              {exifData.FujiFilmFilmMode && (
+                <div>🎞️ {exifData.FujiFilmFilmMode}</div>
+              )}
+              {exifData.FNumber && <div>ƒ/{exifData.FNumber}</div>}
+              {exifData.ExposureTime && (
+                <div>⏱ {formatShutterSpeed(exifData.ExposureTime)}</div>
+              )}
+              {exifData.ISO && <div>☀️ ISO {exifData.ISO}</div>}
+              {exifData.DateTimeOriginal && (
+                <div>
+                  📅{" "}
+                  {new Date(exifData.DateTimeOriginal).toLocaleDateString(
+                    "ko-KR",
+                  )}
+                </div>
+              )}
+              {exifData.DynamicRange && <div>🎚️ {exifData.DynamicRange}</div>}
+              {exifData.WhiteBalance && <div>⚪ {exifData.WhiteBalance}</div>}
+              {exifData.GrainEffect && <div>🌾 {exifData.GrainEffect}</div>}
+              {exifData.NoiseReduction != null && (
+                <div>🔇 NR {exifData.NoiseReduction}</div>
+              )}
+              {exifData.Sharpness != null && <div>🔪 {exifData.Sharpness}</div>}
+              {exifData.Clarity != null && <div>✨ {exifData.Clarity}</div>}
+              {exifData.Saturation && <div>🎨 {exifData.Saturation}</div>}
+              {exifData.ColorChromeEffect && (
+                <div>🎭 {exifData.ColorChromeEffect}</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 한줄 멘트 */}
+        <textarea
+          placeholder="오늘의 한 줄..."
+          value={memo}
+          onChange={(e) => setMemo(e.target.value)}
+          style={{
+            width: "100%",
+            minHeight: "80px",
+            padding: "12px",
+            borderRadius: "10px",
+            border: "1px solid var(--border-color)",
+            marginBottom: "1rem",
+            fontSize: "14px",
+            fontFamily: "inherit",
+            background: "var(--background)",
+            color: "var(--foreground)",
+            resize: "none",
+          }}
+        />
+
+        {/* 태그 입력 */}
+        <form onSubmit={handleAddTag} style={{ marginBottom: "0.75rem" }}>
+          <input
+            type="text"
+            placeholder="태그 입력 후 Enter (예: 익선동)"
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "10px 12px",
+              borderRadius: "10px",
+              border: "1px solid var(--border-color)",
+              fontSize: "14px",
+              background: "var(--background)",
+              color: "var(--foreground)",
+            }}
+          />
+        </form>
+
+        {tags.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "6px",
+              marginBottom: "1.25rem",
+            }}
+          >
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                onClick={() => handleRemoveTag(tag)}
+                style={{
+                  fontSize: "12px",
+                  padding: "4px 10px",
+                  borderRadius: "20px",
+                  border: "1px solid var(--border-color)",
+                  cursor: "pointer",
+                  color: "var(--text-secondary)",
+                }}
+              >
+                #{tag} ✕
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* 업로드 버튼 */}
+        <button
+          onClick={handleUpload}
+          disabled={!file || uploading}
+          style={{
+            width: "100%",
+            padding: "13px",
+            background: !file ? "var(--border-color)" : "var(--foreground)",
+            color: !file ? "var(--text-tertiary)" : "var(--background)",
+            border: "none",
+            borderRadius: "10px",
+            fontSize: "14px",
+            fontWeight: 500,
+            cursor: file ? "pointer" : "not-allowed",
+            letterSpacing: "0.02em",
+          }}
+        >
+          {uploading ? "업로드 중..." : "업로드"}
+        </button>
+      </div>
+
+      <BottomNav />
     </div>
   );
 }

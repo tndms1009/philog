@@ -2,6 +2,11 @@
 
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
+import Header from "./components/Header";
+import BottomNav from "./components/BottomNav";
+import GridView from "./components/GridView";
+import BlogView from "./components/BlogView";
+import PostCard from "./components/PostCard";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -15,46 +20,26 @@ export default function Home() {
   const [selectedPost, setSelectedPost] = useState(null);
   const [selectedTag, setSelectedTag] = useState(null);
   const [scrollToPostId, setScrollToPostId] = useState(null);
+  const [selectedIndex, setSelectedIndex] = useState(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const bottomRef = useRef(null);
-  const PAGE_SIZE = 10;
-
   const [user, setUser] = useState(null);
+  const bottomRef = useRef(null);
   const touchStartX = useRef(null);
-
-  function handleTouchStart(e) {
-    touchStartX.current = e.touches[0].clientX;
-  }
-
-  function handleTouchEnd(e) {
-    if (touchStartX.current === null) return;
-    const diff = e.changedTouches[0].clientX - touchStartX.current;
-    if (diff > 80 && selectedPost) {
-      setSelectedPost(null);
-      setView("grid");
-    }
-    touchStartX.current = null;
-  }
+  const PAGE_SIZE = 10;
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
-
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user || null);
-      },
+      (_event, session) => setUser(session?.user || null),
     );
-
     fetchPosts();
-
     return () => listener.subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
     if (!bottomRef.current || !hasMore || loadingMore) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loadingMore) {
@@ -65,15 +50,9 @@ export default function Home() {
       },
       { threshold: 0.1 },
     );
-
     observer.observe(bottomRef.current);
     return () => observer.disconnect();
   }, [hasMore, loadingMore, page]);
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    window.location.reload();
-  }
 
   async function fetchPosts(pageNum = 0, replace = true) {
     if (pageNum === 0) setLoading(true);
@@ -91,17 +70,15 @@ export default function Home() {
     if (error) {
       console.error("불러오기 실패:", error);
     } else {
-      if (replace) {
-        setPosts(data);
-      } else {
-        setPosts((prev) => [...prev, ...data]);
-      }
+      if (replace) setPosts(data);
+      else setPosts((prev) => [...prev, ...data]);
       setHasMore(data.length === PAGE_SIZE);
     }
 
     if (pageNum === 0) setLoading(false);
     else setLoadingMore(false);
   }
+
   function formatDate(dateStr) {
     if (!dateStr) return "";
     const d = new Date(dateStr);
@@ -117,188 +94,78 @@ export default function Home() {
     return `${date} — ${time}`;
   }
 
+  function handleTouchStart(e) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e) {
+    if (touchStartX.current === null) return;
+    const diff = e.changedTouches[0].clientX - touchStartX.current;
+    if (diff > 80 && selectedPost) {
+      setSelectedPost(null);
+      setView("grid");
+    }
+    touchStartX.current = null;
+  }
+
   return (
     <div
-      style={{ maxWidth: "900px", margin: "0 auto", padding: "0 1.5rem" }}
       className="main-wrap"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "1.2rem 1rem",
-          borderBottom: "0.5px solid #e5e5e5",
-          marginBottom: "0",
-        }}
-      >
-        <span
-          onClick={() => {
+      {!selectedPost && (
+        <Header
+          onLogoClick={() => {
             setSelectedPost(null);
             setSelectedTag(null);
             setView("grid");
           }}
-          style={{
-            fontSize: "17px",
-            fontWeight: 500,
-            letterSpacing: "0.1em",
-            cursor: "pointer",
-          }}
-        >
-          PHILOG.
-        </span>
-        <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
-          {user ? (
-            <>
-              <a
-                href="/upload"
-                style={{
-                  fontSize: "13px",
-                  color: "#555",
-                  textDecoration: "none",
-                }}
-              >
-                업로드
-              </a>
-              <span
-                onClick={handleLogout}
-                style={{ fontSize: "13px", color: "#888", cursor: "pointer" }}
-              >
-                로그아웃
-              </span>
-            </>
-          ) : (
-            <a
-              href="/login"
-              style={{
-                fontSize: "13px",
-                color: "#555",
-                textDecoration: "none",
-              }}
-            >
-              로그인
-            </a>
-          )}
-          <div
-            style={{
-              display: "flex",
-              border: "0.5px solid #ccc",
-              borderRadius: "8px",
-              overflow: "hidden",
-            }}
-          >
-            <button
-              onClick={() => {
-                setView("grid");
-                setSelectedPost(null);
-              }}
-              style={{
-                padding: "5px 10px",
-                fontSize: "13px",
-                cursor: "pointer",
-                border: "none",
-                background:
-                  view === "grid" && !selectedPost ? "#222" : "transparent",
-                color: view === "grid" && !selectedPost ? "#fff" : "#555",
-              }}
-            >
-              ▦ 모아보기
-            </button>
-            <button
-              onClick={() => {
-                setView("blog");
-                setSelectedPost(null);
-              }}
-              style={{
-                padding: "5px 10px",
-                fontSize: "13px",
-                cursor: "pointer",
-                border: "none",
-                borderLeft: "0.5px solid #ccc",
-                background:
-                  view === "blog" && !selectedPost ? "#222" : "transparent",
-                color: view === "blog" && !selectedPost ? "#fff" : "#555",
-              }}
-            >
-              ☰ 블로그형
-            </button>
-          </div>
-        </div>
-      </div>
+        />
+      )}
 
       {loading && (
-        <p style={{ textAlign: "center", padding: "3rem 0", color: "#999" }}>
+        <p
+          style={{
+            textAlign: "center",
+            padding: "3rem 0",
+            color: "var(--text-tertiary)",
+          }}
+        >
           불러오는 중...
         </p>
       )}
 
       {!loading && posts.length === 0 && (
-        <p style={{ textAlign: "center", padding: "3rem 0", color: "#999" }}>
+        <p
+          style={{
+            textAlign: "center",
+            padding: "3rem 0",
+            color: "var(--text-tertiary)",
+          }}
+        >
           아직 업로드된 사진이 없어요. <a href="/upload">첫 사진 올리기</a>
         </p>
-      )}
-
-      {/* 상세보기 */}
-      {selectedPost && (
-        <div>
-          <PostCard
-            post={selectedPost}
-            formatDate={formatDate}
-            onUpdate={fetchPosts}
-            onDeleted={() => setSelectedPost(null)}
-            currentUserId={user?.id}
-            onTagClick={(tag) => {
-              setSelectedTag(tag);
-              setSelectedPost(null);
-            }}
-          />
-
-          <button
-            onClick={() => setSelectedPost(null)}
-            style={{
-              position: "fixed",
-              bottom: "24px",
-              right: "24px",
-              width: "48px",
-              height: "48px",
-              borderRadius: "50%",
-              background: "#222",
-              color: "#fff",
-              border: "none",
-              fontSize: "18px",
-              cursor: "pointer",
-              boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 100,
-            }}
-          >
-            ←
-          </button>
-        </div>
       )}
 
       {/* 태그 필터 */}
       {selectedTag && (
         <div
           style={{
-            marginBottom: "1rem",
+            padding: "0.75rem 0",
             display: "flex",
             alignItems: "center",
             gap: "8px",
           }}
         >
-          <span style={{ fontSize: "13px", color: "#555" }}>
+          <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
             #{selectedTag} 필터 중
           </span>
           <span
             onClick={() => setSelectedTag(null)}
             style={{
               fontSize: "12px",
-              color: "#999",
+              color: "var(--text-tertiary)",
               cursor: "pointer",
               textDecoration: "underline",
             }}
@@ -308,419 +175,166 @@ export default function Home() {
         </div>
       )}
 
-      {/* 그리드 뷰 */}
-      {!selectedPost && view === "grid" && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: "1px",
-            width: "100%",
-          }}
-          className="grid-wrap"
-        >
-          {posts
-            .filter(
-              (post) =>
-                !selectedTag || (post.tags && post.tags.includes(selectedTag)),
-            )
-            .map((post) => (
-              <div
-                key={post.id}
-                onClick={() => {
-                  setScrollToPostId(post.id);
-                  setSelectedPost(null);
-                  setView("blog");
-                }}
-                style={{
-                  position: "relative",
-                  width: "100%",
-                  aspectRatio: "1",
-                  overflow: "hidden",
-                  cursor: "pointer",
-                  backgroundImage: `url(${post.image_url})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  backgroundColor: "#eee",
-                }}
-              />
-            ))}
+      {/* 상세보기 */}
+      {selectedPost && (
+        <div>
+          <PostCard
+            post={selectedPost}
+            formatDate={formatDate}
+            onUpdate={fetchPosts}
+            onDeleted={() => {
+              setSelectedPost(null);
+              setSelectedIndex(null);
+            }}
+            currentUserId={user?.id}
+            onTagClick={(tag) => {
+              setSelectedTag(tag);
+              setSelectedPost(null);
+              setSelectedIndex(null);
+            }}
+          />
+
+          {/* 이전/다음 네비게이션 */}
+          <div className="fixed bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-4 z-50">
+            <button
+              onClick={() => {
+                const prev = selectedIndex - 1;
+                if (prev >= 0) {
+                  setSelectedPost(posts[prev]);
+                  setSelectedIndex(prev);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
+              disabled={selectedIndex === 0}
+              className="w-10 h-10 rounded-full flex items-center justify-center border-none cursor-pointer transition-opacity"
+              style={{
+                background: "var(--foreground)",
+                color: "var(--background)",
+                opacity: selectedIndex === 0 ? 0.3 : 1,
+                boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
+              }}
+            >
+              ←
+            </button>
+            <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+              {selectedIndex + 1} / {posts.length}
+            </span>
+            <button
+              onClick={() => {
+                const next = selectedIndex + 1;
+                if (next < posts.length) {
+                  setSelectedPost(posts[next]);
+                  setSelectedIndex(next);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
+              disabled={selectedIndex === posts.length - 1}
+              className="w-10 h-10 rounded-full flex items-center justify-center border-none cursor-pointer transition-opacity"
+              style={{
+                background: "var(--foreground)",
+                color: "var(--background)",
+                opacity: selectedIndex === posts.length - 1 ? 0.3 : 1,
+                boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
+              }}
+            >
+              →
+            </button>
+          </div>
+
+          {/* 뒤로가기 버튼 */}
+          <div
+            className="fixed z-50 flex flex-col gap-2"
+            style={{ bottom: "80px", left: "16px" }}
+          >
+            {/* 홈으로 */}
+            <button
+              onClick={() => {
+                setSelectedPost(null);
+                setSelectedIndex(null);
+                setView("grid");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className="w-10 h-10 rounded-full flex items-center justify-center border-none cursor-pointer"
+              style={{
+                background: "var(--foreground)",
+                color: "var(--background)",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
+              }}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                stroke="none"
+              >
+                <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
+                <rect
+                  x="9"
+                  y="12"
+                  width="6"
+                  height="9"
+                  fill="var(--background)"
+                />
+              </svg>
+            </button>
+
+            {/* 뒤로가기 */}
+            <button
+              onClick={() => {
+                setSelectedPost(null);
+                setSelectedIndex(null);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className="w-10 h-10 rounded-full flex items-center justify-center border-none cursor-pointer"
+              style={{
+                background: "var(--foreground)",
+                color: "var(--background)",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
+              }}
+            >
+              ←
+            </button>
+          </div>
         </div>
       )}
-      <div ref={bottomRef} style={{ height: "1px" }} />
-      {loadingMore && (
-        <p
-          style={{
-            textAlign: "center",
-            padding: "1rem 0",
-            color: "#999",
-            fontSize: "13px",
+
+      {/* 그리드 뷰 */}
+      {!selectedPost && view === "grid" && (
+        <GridView
+          posts={posts}
+          selectedTag={selectedTag}
+          onPostClick={(post, index) => {
+            setSelectedPost(post);
+            setSelectedIndex(index);
           }}
-        >
-          불러오는 중...
-        </p>
+        />
       )}
 
       {/* 블로그 뷰 */}
       {!selectedPost && view === "blog" && (
-        <div>
-          {posts
-            .filter(
-              (post) =>
-                !selectedTag || (post.tags && post.tags.includes(selectedTag)),
-            )
-            .map((post) => (
-              <PostCard
-                key={post.id}
-                post={post}
-                formatDate={formatDate}
-                onUpdate={fetchPosts}
-                currentUserId={user?.id}
-                onTagClick={(tag) => setSelectedTag(tag)}
-                scrollToMe={scrollToPostId === post.id}
-                onScrollDone={() => setScrollToPostId(null)}
-              />
-            ))}
-          <div ref={bottomRef} style={{ height: "1px" }} />
-          {loadingMore && (
-            <p
-              style={{
-                textAlign: "center",
-                padding: "1rem 0",
-                color: "#999",
-                fontSize: "13px",
-              }}
-            >
-              불러오는 중...
-            </p>
-          )}
-          {!hasMore && posts.length > 0 && (
-            <p
-              style={{
-                textAlign: "center",
-                padding: "1rem 0",
-                color: "#ccc",
-                fontSize: "12px",
-              }}
-            >
-              모든 사진을 불러왔어요
-            </p>
-          )}
-        </div>
+        <BlogView
+          posts={posts}
+          selectedTag={selectedTag}
+          formatDate={formatDate}
+          onUpdate={fetchPosts}
+          currentUserId={user?.id}
+          onTagClick={(tag) => setSelectedTag(tag)}
+          scrollToPostId={scrollToPostId}
+          onScrollDone={() => setScrollToPostId(null)}
+          loadingMore={loadingMore}
+          hasMore={hasMore}
+          bottomRef={bottomRef}
+        />
       )}
-    </div>
-  );
-}
-function PostCard({
-  post,
-  formatDate,
-  onUpdate,
-  onDeleted,
-  currentUserId,
-  onTagClick,
-  scrollToMe,
-  onScrollDone,
-}) {
-  const cardRef = useRef(null);
-  const [editing, setEditing] = useState(false);
-  const [memo, setMemo] = useState(post.memo || "");
-  const [tags, setTags] = useState(post.tags || []);
-  const [tagInput, setTagInput] = useState("");
-  const [saving, setSaving] = useState(false);
-  useEffect(() => {
-    if (scrollToMe && cardRef.current) {
-      setTimeout(() => {
-        cardRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-        if (onScrollDone) onScrollDone();
-      }, 100);
-    }
-  }, [scrollToMe]);
-  function handleAddTag(e) {
-    e.preventDefault();
-    const trimmed = tagInput.trim().replace(/^#/, "");
-    if (trimmed && !tags.includes(trimmed)) {
-      setTags([...tags, trimmed]);
-    }
-    setTagInput("");
-  }
 
-  function handleRemoveTag(tagToRemove) {
-    setTags(tags.filter((t) => t !== tagToRemove));
-  }
-
-  async function handleSave() {
-    setSaving(true);
-    const { error } = await supabase
-      .from("posts")
-      .update({ memo, tags: tags.length > 0 ? tags : null })
-      .eq("id", post.id);
-
-    setSaving(false);
-
-    if (error) {
-      alert("수정 실패: " + error.message);
-    } else {
-      setEditing(false);
-      if (onUpdate) onUpdate();
-    }
-  }
-
-  async function handleDelete() {
-    const confirmed = window.confirm("정말 이 게시물을 삭제할까요?");
-    if (!confirmed) return;
-
-    const { error } = await supabase.from("posts").delete().eq("id", post.id);
-
-    if (error) {
-      alert("삭제 실패: " + error.message);
-    } else {
-      if (onUpdate) onUpdate();
-      if (onDeleted) onDeleted();
-    }
-  }
-
-  return (
-    <div
-      ref={cardRef}
-      style={{
-        marginBottom: "3.5rem",
-        paddingBottom: "3.5rem",
-        borderBottom: "0.5px solid #e5e5e5",
-      }}
-    >
-      <img
-        src={post.image_url}
-        alt=""
-        loading="lazy"
-        style={{
-          width: "100%",
-          borderRadius: "0px",
-          marginBottom: "1.25rem",
-          display: "block",
+      <BottomNav
+        view={view}
+        onViewChange={(v) => {
+          setView(v);
+          setSelectedPost(null);
         }}
       />
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: "2rem",
-          flexWrap: "wrap",
-          padding: "0 1rem",
-        }}
-      >
-        <div style={{ flex: 1, minWidth: "200px" }}>
-          <div
-            style={{
-              fontSize: "12px",
-              color: "#999",
-              marginBottom: "8px",
-              letterSpacing: "0.05em",
-            }}
-          >
-            {formatDate(post.taken_at)}
-          </div>
-
-          {editing ? (
-            <div>
-              <textarea
-                value={memo}
-                onChange={(e) => setMemo(e.target.value)}
-                style={{
-                  width: "100%",
-                  minHeight: "70px",
-                  fontSize: "14px",
-                  padding: "8px",
-                  borderRadius: "6px",
-                  border: "1px solid #ccc",
-                  marginBottom: "8px",
-                  fontFamily: "inherit",
-                }}
-              />
-
-              <form onSubmit={handleAddTag} style={{ marginBottom: "8px" }}>
-                <input
-                  type="text"
-                  placeholder="태그 입력 후 Enter"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "6px 10px",
-                    borderRadius: "6px",
-                    border: "1px solid #ccc",
-                    fontSize: "13px",
-                  }}
-                />
-              </form>
-
-              {tags.length > 0 && (
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "6px",
-                    marginBottom: "10px",
-                  }}
-                >
-                  {tags.map((tag) => (
-                    <span
-                      key={tag}
-                      onClick={() => handleRemoveTag(tag)}
-                      style={{
-                        fontSize: "11px",
-                        padding: "3px 9px",
-                        borderRadius: "20px",
-                        border: "1px solid #ccc",
-                        cursor: "pointer",
-                        color: "#555",
-                      }}
-                    >
-                      #{tag} ✕
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  style={{
-                    fontSize: "12px",
-                    padding: "5px 12px",
-                    borderRadius: "6px",
-                    border: "none",
-                    background: "#222",
-                    color: "#fff",
-                    cursor: "pointer",
-                  }}
-                >
-                  {saving ? "저장 중..." : "저장"}
-                </button>
-                <button
-                  onClick={() => {
-                    setMemo(post.memo || "");
-                    setTags(post.tags || []);
-                    setTagInput("");
-                    setEditing(false);
-                  }}
-                  style={{
-                    fontSize: "12px",
-                    padding: "5px 12px",
-                    borderRadius: "6px",
-                    border: "1px solid #ccc",
-                    background: "transparent",
-                    cursor: "pointer",
-                  }}
-                >
-                  취소
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div>
-              {post.memo && (
-                <div
-                  style={{
-                    fontSize: "15px",
-                    color: "#222",
-                    lineHeight: "1.65",
-                    fontStyle: "italic",
-                    marginBottom: "10px",
-                  }}
-                >
-                  "{post.memo}"
-                </div>
-              )}
-
-              {post.tags && post.tags.length > 0 && (
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "6px",
-                    marginBottom: "10px",
-                  }}
-                >
-                  {post.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      onClick={() => onTagClick && onTagClick(tag)}
-                      style={{
-                        fontSize: "11px",
-                        padding: "3px 9px",
-                        borderRadius: "20px",
-                        border: "1px solid #ddd",
-                        color: "#777",
-                        cursor: onTagClick ? "pointer" : "default",
-                      }}
-                    >
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {currentUserId === post.user_id && (
-                <div style={{ display: "flex", gap: "12px" }}>
-                  <span
-                    onClick={() => setEditing(true)}
-                    style={{
-                      fontSize: "12px",
-                      color: "#333",
-                      cursor: "pointer",
-                    }}
-                  >
-                    ✎ 수정
-                  </span>
-                  <span
-                    onClick={handleDelete}
-                    style={{
-                      fontSize: "12px",
-                      color: "#f00",
-                      cursor: "pointer",
-                    }}
-                  >
-                    🗑 삭제
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "6px",
-            fontSize: "12px",
-            color: "#555",
-          }}
-        >
-          {post.camera && <div>📷 {post.camera}</div>}
-          {post.film_simulation && <div>🎞️ {post.film_simulation}</div>}
-          {post.aperture && <div>ƒ {post.aperture}</div>}
-          {post.shutter_speed && <div>⏱ {post.shutter_speed}</div>}
-          {post.iso && <div>☀️ {post.iso}</div>}
-          {post.dynamic_range && <div>🎚️ DR {post.dynamic_range}</div>}
-          {post.white_balance && <div>⚪ {post.white_balance}</div>}
-          {post.highlight && <div>🔆 하이라이트 {post.highlight}</div>}
-          {post.shadow && <div>🌑 섀도우 {post.shadow}</div>}
-          {post.grain && <div>🌾 그레인 {post.grain}</div>}
-          {post.noise_reduction && (
-            <div>🔇 노이즈감소 {post.noise_reduction}</div>
-          )}
-          {post.sharpness && <div>🔪 선명도 {post.sharpness}</div>}
-          {post.clarity && <div>✨ 명료도 {post.clarity}</div>}
-          {post.saturation && <div>🎨 채도 {post.saturation}</div>}
-          {post.color_chrome && <div>🎭 컬러크롬 {post.color_chrome}</div>}
-          {post.color_chrome_fx_blue && (
-            <div>💙 컬러크롬FX블루 {post.color_chrome_fx_blue}</div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
