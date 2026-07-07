@@ -241,61 +241,23 @@ export default function Home() {
             </button>
           </div>
 
-          {/* 뒤로가기 버튼 */}
-          <div
-            className="fixed z-50 flex flex-col gap-2"
-            style={{ bottom: "80px", left: "16px" }}
+          <button
+            onClick={() => {
+              setSelectedPost(null);
+              setSelectedIndex(null);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            className="fixed w-10 h-10 rounded-full flex items-center justify-center border-none cursor-pointer z-50"
+            style={{
+              bottom: "80px",
+              left: "16px",
+              background: "var(--foreground)",
+              color: "var(--background)",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
+            }}
           >
-            {/* 홈으로 */}
-            <button
-              onClick={() => {
-                setSelectedPost(null);
-                setSelectedIndex(null);
-                setView("grid");
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              className="w-10 h-10 rounded-full flex items-center justify-center border-none cursor-pointer"
-              style={{
-                background: "var(--foreground)",
-                color: "var(--background)",
-                boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
-              }}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                stroke="none"
-              >
-                <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
-                <rect
-                  x="9"
-                  y="12"
-                  width="6"
-                  height="9"
-                  fill="var(--background)"
-                />
-              </svg>
-            </button>
-
-            {/* 뒤로가기 */}
-            <button
-              onClick={() => {
-                setSelectedPost(null);
-                setSelectedIndex(null);
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              className="w-10 h-10 rounded-full flex items-center justify-center border-none cursor-pointer"
-              style={{
-                background: "var(--foreground)",
-                color: "var(--background)",
-                boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
-              }}
-            >
-              ←
-            </button>
-          </div>
+            ←
+          </button>
         </div>
       )}
 

@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -31,5 +33,15 @@
 @layer utilities {
   .main-wrap {
     @apply max-w-[900px] mx-auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .exif-divider {
+    border-left: none !important;
+    border-top: 0.5px solid var(--border-color);
+    padding-left: 0 !important;
+    padding-top: 1rem;
+    width: 100%;
   }
 }

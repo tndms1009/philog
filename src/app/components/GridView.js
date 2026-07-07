@@ -7,13 +7,13 @@ export default function GridView({ posts, selectedTag, onPostClick }) {
 
   return (
     <div
+      className="grid-wrap"
       style={{
         display: "grid",
         gridTemplateColumns: "repeat(3, 1fr)",
         gap: "1px",
         width: "100%",
       }}
-      className="grid-wrap"
     >
       {filtered.map((post, index) => (
         <div
@@ -28,7 +28,7 @@ export default function GridView({ posts, selectedTag, onPostClick }) {
             backgroundImage: `url(${post.image_url})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
-            backgroundColor: "var(--nav-border)",
+            backgroundColor: "#eee",
           }}
         />
       ))}
