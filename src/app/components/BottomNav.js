@@ -1,31 +1,11 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-);
+import supabase from "../lib/supabase";
 
 const icons = {
   home: (active) => (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill={active ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
-      <path d="M9 21V12h6v9" fill="none" />
-    </svg>
-  ),
-  blog: (active) => (
     <svg
       width="24"
       height="24"
@@ -39,7 +19,52 @@ const icons = {
       <path d="M4 6h16M4 12h16M4 18h10" />
     </svg>
   ),
-  upload: () => (
+  grid: (active) => (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect
+        x="3"
+        y="3"
+        width="7"
+        height="7"
+        rx="1"
+        fill={active ? "currentColor" : "none"}
+      />
+      <rect
+        x="14"
+        y="3"
+        width="7"
+        height="7"
+        rx="1"
+        fill={active ? "currentColor" : "none"}
+      />
+      <rect
+        x="3"
+        y="14"
+        width="7"
+        height="7"
+        rx="1"
+        fill={active ? "currentColor" : "none"}
+      />
+      <rect
+        x="14"
+        y="14"
+        width="7"
+        height="7"
+        rx="1"
+        fill={active ? "currentColor" : "none"}
+      />
+    </svg>
+  ),
+  upload: (active) => (
     <svg
       width="24"
       height="24"
@@ -71,7 +96,7 @@ const icons = {
   ),
 };
 
-export default function BottomNav({ view, onViewChange }) {
+export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState(null);
@@ -84,11 +109,9 @@ export default function BottomNav({ view, onViewChange }) {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  const isHome = pathname === "/";
-
   function isActive(id) {
-    if (id === "home") return isHome && view !== "blog";
-    if (id === "blog") return isHome && view === "blog";
+    if (id === "home") return pathname === "/";
+    if (id === "grid") return pathname === "/grid";
     if (id === "upload") return pathname === "/upload";
     if (id === "mypage") return pathname === "/mypage";
     return false;
@@ -97,17 +120,11 @@ export default function BottomNav({ view, onViewChange }) {
   const tabs = [
     {
       id: "home",
-      action: () => {
-        if (!isHome) router.push("/");
-        else if (onViewChange) onViewChange("grid");
-      },
+      action: () => router.push("/"),
     },
     {
-      id: "blog",
-      action: () => {
-        if (!isHome) router.push("/");
-        else if (onViewChange) onViewChange("blog");
-      },
+      id: "grid",
+      action: () => router.push("/grid"),
     },
     {
       id: "upload",

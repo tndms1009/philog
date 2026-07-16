@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import Header from "./components/Header";
-import BottomNav from "./components/BottomNav";
-import BlogView from "./components/BlogView";
-import PostCard from "./components/PostCard";
+import Header from "../components/Header";
+import BottomNav from "../components/BottomNav";
+import GridView from "../components/GridView";
+import PostCard from "../components/PostCard";
 import { useRouter } from "next/navigation";
-import supabase from "./lib/supabase";
+import supabase from "../lib/supabase";
 
-export default function Home() {
+export default function GridPage() {
   const router = useRouter();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +20,6 @@ export default function Home() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [user, setUser] = useState(null);
   const bottomRef = useRef(null);
-  const touchStartX = useRef(null);
   const PAGE_SIZE = 10;
 
   useEffect(() => {
@@ -120,28 +119,10 @@ export default function Home() {
     return `${date} — ${time}`;
   }
 
-  function handleTouchStart(e) {
-    touchStartX.current = e.touches[0].clientX;
-  }
-
-  function handleTouchEnd(e) {
-    if (touchStartX.current === null) return;
-    const diff = e.changedTouches[0].clientX - touchStartX.current;
-    if (diff > 80 && selectedPost) {
-      setSelectedPost(null);
-    }
-    touchStartX.current = null;
-  }
-
   if (loading) {
     return (
       <div className="main-wrap">
-        <Header
-          onLogoClick={() => {
-            setSelectedPost(null);
-            setSelectedTag(null);
-          }}
-        />
+        <Header onLogoClick={() => router.push("/")} showAbout={false} />
         <p
           style={{
             textAlign: "center",
@@ -157,21 +138,10 @@ export default function Home() {
   }
 
   return (
-    <div
-      className="main-wrap"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
-      {!selectedPost && (
-        <Header
-          onLogoClick={() => {
-            setSelectedPost(null);
-            setSelectedTag(null);
-          }}
-        />
-      )}
+    <div className="main-wrap">
+      {!selectedPost && <Header onLogoClick={() => router.push("/")} />}
 
-      {posts.length === 0 && (
+      {!loading && posts.length === 0 && (
         <p
           style={{
             textAlign: "center",
@@ -179,7 +149,7 @@ export default function Home() {
             color: "var(--text-tertiary)",
           }}
         >
-          아직 업로드된 사진이 없어요. <a href="/upload">첫 사진 올리기</a>
+          아직 업로드된 사진이 없어요.
         </p>
       )}
 
@@ -288,19 +258,43 @@ export default function Home() {
         </div>
       )}
 
-      {/* 피드 뷰 */}
+      {/* 그리드 뷰 */}
       {!selectedPost && (
-        <BlogView
-          posts={posts}
-          selectedTag={selectedTag}
-          formatDate={formatDate}
-          onUpdate={fetchPosts}
-          currentUserId={user?.id}
-          onTagClick={(tag) => setSelectedTag(tag)}
-          loadingMore={loadingMore}
-          hasMore={hasMore}
-          bottomRef={bottomRef}
-        />
+        <>
+          <GridView
+            posts={posts}
+            selectedTag={selectedTag}
+            onPostClick={(post, index) => {
+              setSelectedPost(post);
+              setSelectedIndex(index);
+            }}
+          />
+          <div ref={bottomRef} style={{ height: "20px" }} />
+          {loadingMore && (
+            <p
+              style={{
+                textAlign: "center",
+                padding: "1rem 0",
+                color: "var(--text-tertiary)",
+                fontSize: "13px",
+              }}
+            >
+              불러오는 중...
+            </p>
+          )}
+          {!hasMore && posts.length > 0 && (
+            <p
+              style={{
+                textAlign: "center",
+                padding: "1rem 0",
+                color: "var(--text-secondary)",
+                fontSize: "12px",
+              }}
+            >
+              모든 사진을 불러왔어요
+            </p>
+          )}
+        </>
       )}
 
       <BottomNav />

@@ -1,13 +1,8 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { createClient } from "@supabase/supabase-js";
 import html2canvas from "html2canvas";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-);
+import supabase from "../lib/supabase";
 
 export default function PostCard({
   post,
@@ -25,6 +20,7 @@ export default function PostCard({
   const [tags, setTags] = useState(post.tags || []);
   const [tagInput, setTagInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const [isPublic, setIsPublic] = useState(post.is_public !== false);
   const [showImageModal, setShowImageModal] = useState(false);
   const polaroidRef = useRef(null);
 
@@ -54,9 +50,12 @@ export default function PostCard({
     setSaving(true);
     const { error } = await supabase
       .from("posts")
-      .update({ memo, tags: tags.length > 0 ? tags : null })
+      .update({
+        memo,
+        tags: tags.length > 0 ? tags : null,
+        is_public: isPublic,
+      })
       .eq("id", post.id);
-
     setSaving(false);
     if (error) {
       alert("수정 실패: " + error.message);
@@ -84,15 +83,50 @@ export default function PostCard({
     try {
       const canvas = await html2canvas(polaroidRef.current, {
         useCORS: true,
+        allowTaint: true,
         scale: 2,
         backgroundColor: "#ffffff",
+        logging: false,
       });
-      const link = document.createElement("a");
-      link.download = `philog_${post.id}.jpg`;
-      link.href = canvas.toDataURL("image/jpeg", 0.95);
-      link.click();
+
+      // 모바일 환경 체크
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+      if (isMobile) {
+        // 모바일 — 새 탭에서 이미지 열기 (길게 눌러서 저장)
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+        const newTab = window.open();
+        if (newTab) {
+          newTab.document.write(`
+          <html>
+            <head>
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>Philog 저장</title>
+              <style>
+                body { margin: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 16px; }
+                img { max-width: 100%; }
+                p { color: #fff; font-size: 14px; font-family: sans-serif; text-align: center; padding: 0 20px; }
+              </style>
+            </head>
+            <body>
+              <p>이미지를 길게 눌러서 저장하세요</p>
+              <img src="${dataUrl}" />
+            </body>
+          </html>
+        `);
+          newTab.document.close();
+        } else {
+          alert("팝업이 차단됐어요. 브라우저 팝업 허용 후 다시 시도해주세요.");
+        }
+      } else {
+        // PC — 바로 다운로드
+        const link = document.createElement("a");
+        link.download = `philog_${post.id}.jpg`;
+        link.href = canvas.toDataURL("image/jpeg", 0.95);
+        link.click();
+      }
     } catch (err) {
-      alert("저장 실패: " + err.message);
+      alert("저장 실패: " + err.message + "\n\n스크린샷으로 저장해주세요.");
     }
   }
 
@@ -164,10 +198,40 @@ export default function PostCard({
                   fontWeight: 400,
                   color: "#1a1a1a",
                   letterSpacing: "0.06em",
-                  fontFamily: "'Cormorant Garamond', serif",
+                  fontFamily: "'Roboto', sans-serif",
                 }}
               >
-                {post.camera ? `FUJIFILM ${post.camera}` : "PHILOG."}
+                {post.camera ? (
+                  post.camera.toUpperCase().includes("FUJI") ||
+                  post.camera.toUpperCase().includes("X100") ||
+                  post.camera.toUpperCase().includes("X-T") ||
+                  post.camera.toUpperCase().includes("X-S") ||
+                  post.camera.toUpperCase().includes("X-E") ||
+                  post.camera.toUpperCase().includes("GFX") ? (
+                    <>
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          fontFamily: "'Roboto', sans-serif",
+                        }}
+                      >
+                        FUJIFILM{" "}
+                      </span>
+                      <span
+                        style={{
+                          fontWeight: 400,
+                          fontFamily: "'Roboto', sans-serif",
+                        }}
+                      >
+                        {post.camera}
+                      </span>
+                    </>
+                  ) : (
+                    post.camera
+                  )
+                ) : (
+                  "PHILOG."
+                )}
               </div>
               <div
                 style={{
@@ -175,8 +239,8 @@ export default function PostCard({
                   color: "#555",
                   letterSpacing: "0.04em",
                   fontStyle: "italic",
-                  fontFamily: "'Cormorant Garamond', serif",
-                  fontWeight: 300,
+                  fontFamily: "'Libre Baskerville', serif",
+                  fontWeight: 400,
                   letterSpacing: "-0.5px",
                 }}
               >
@@ -190,8 +254,8 @@ export default function PostCard({
                   color: "#555",
                   letterSpacing: "0.04em",
                   fontStyle: "italic",
-                  fontFamily: "'Cormorant Garamond', serif",
-                  fontWeight: 300,
+                  fontFamily: "'Libre Baskerville', serif",
+                  fontWeight: 400,
                   letterSpacing: -0.5,
                 }}
               >
@@ -209,8 +273,8 @@ export default function PostCard({
                   color: "#aaa",
                   letterSpacing: "0.04em",
                   fontStyle: "italic",
-                  fontFamily: "'Cormorant Garamond', serif",
-                  fontWeight: 300,
+                  fontFamily: "'Libre Baskerville', serif",
+                  fontWeight: 400,
                   marginTop: "2px",
                 }}
               >
@@ -218,7 +282,50 @@ export default function PostCard({
               </div>
             </div>
           </div>
-
+          {/* 공개/비공개 토글 */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "10px 0",
+              marginBottom: "10px",
+              borderTop: "0.5px solid var(--border-color)",
+              borderBottom: "0.5px solid var(--border-color)",
+            }}
+          >
+            <span style={{ fontSize: "13px", color: "var(--foreground)" }}>
+              {isPublic ? "전체 공개" : "나만 보기"}
+            </span>
+            <div
+              onClick={() => setIsPublic(!isPublic)}
+              style={{
+                width: "44px",
+                height: "26px",
+                borderRadius: "13px",
+                background: isPublic
+                  ? "var(--foreground)"
+                  : "var(--border-color)",
+                position: "relative",
+                cursor: "pointer",
+                transition: "background 0.2s",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  top: "3px",
+                  left: isPublic ? "21px" : "3px",
+                  width: "20px",
+                  height: "20px",
+                  borderRadius: "50%",
+                  background: "#fff",
+                  transition: "left 0.2s",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                }}
+              />
+            </div>
+          </div>
           {/* 버튼 영역 */}
           <div style={{ display: "flex", gap: "10px" }}>
             {/* 본인 글일 때만 저장 버튼 표시 */}
@@ -272,7 +379,7 @@ export default function PostCard({
         }}
       >
         <img
-          src={post.image_url}
+          src={`${post.image_url}?width=900&quality=80`}
           alt=""
           loading="lazy"
           style={{ width: "100%", display: "block" }}
@@ -296,10 +403,40 @@ export default function PostCard({
               fontWeight: 400,
               color: "#1a1a1a",
               letterSpacing: "0.06em",
-              fontFamily: "'Cormorant Garamond', serif",
+              fontFamily: "'Roboto', sans-serif",
             }}
           >
-            {post.camera ? `FUJIFILM ${post.camera}` : "PHILOG."}
+            {post.camera ? (
+              post.camera.toUpperCase().includes("FUJI") ||
+              post.camera.toUpperCase().includes("X100") ||
+              post.camera.toUpperCase().includes("X-T") ||
+              post.camera.toUpperCase().includes("X-S") ||
+              post.camera.toUpperCase().includes("X-E") ||
+              post.camera.toUpperCase().includes("GFX") ? (
+                <>
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      fontFamily: "'Roboto', sans-serif",
+                    }}
+                  >
+                    FUJIFILM{" "}
+                  </span>
+                  <span
+                    style={{
+                      fontWeight: 400,
+                      fontFamily: "'Roboto', sans-serif",
+                    }}
+                  >
+                    {post.camera}
+                  </span>
+                </>
+              ) : (
+                post.camera
+              )
+            ) : (
+              "PHILOG."
+            )}
           </div>
           <div
             style={{
@@ -307,8 +444,8 @@ export default function PostCard({
               color: "#555",
               letterSpacing: "0.04em",
               fontStyle: "italic",
-              fontFamily: "'Cormorant Garamond', serif",
-              fontWeight: 300,
+              fontFamily: "'Libre Baskerville', serif",
+              fontWeight: 400,
               letterSpacing: "-0.5px",
             }}
           >
@@ -322,8 +459,8 @@ export default function PostCard({
               color: "#555",
               letterSpacing: "0.04em",
               fontStyle: "italic",
-              fontFamily: "'Cormorant Garamond', serif",
-              fontWeight: 300,
+              fontFamily: "'Libre Baskerville', serif",
+              fontWeight: 400,
               letterSpacing: -0.5,
             }}
           >
@@ -341,8 +478,8 @@ export default function PostCard({
               color: "#aaa",
               letterSpacing: "0.04em",
               fontStyle: "italic",
-              fontFamily: "'Cormorant Garamond', serif",
-              fontWeight: 300,
+              fontFamily: "'Libre Baskerville', serif",
+              fontWeight: 400,
               marginTop: "2px",
             }}
           >
@@ -369,13 +506,34 @@ export default function PostCard({
         >
           <div
             style={{
-              fontSize: "12px",
-              color: "var(--text-tertiary)",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
               marginBottom: "8px",
-              letterSpacing: "0.05em",
             }}
           >
-            {formatDate(post.taken_at)}
+            <div
+              style={{
+                fontSize: "12px",
+                color: "var(--text-tertiary)",
+                letterSpacing: "0.05em",
+              }}
+            >
+              {formatDate(post.taken_at)}
+            </div>
+            {post.is_public === false && (
+              <span
+                style={{
+                  fontSize: "10px",
+                  padding: "2px 7px",
+                  borderRadius: "4px",
+                  border: "1px solid var(--border-color)",
+                  color: "var(--text-tertiary)",
+                }}
+              >
+                🔒 비공개
+              </span>
+            )}
           </div>
 
           {editing ? (
@@ -440,6 +598,49 @@ export default function PostCard({
                   ))}
                 </div>
               )}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 0",
+                  marginBottom: "10px",
+                  borderTop: "0.5px solid var(--border-color)",
+                  borderBottom: "0.5px solid var(--border-color)",
+                }}
+              >
+                <span style={{ fontSize: "13px", color: "var(--foreground)" }}>
+                  {isPublic ? "전체 공개" : "나만 보기"}
+                </span>
+                <div
+                  onClick={() => setIsPublic(!isPublic)}
+                  style={{
+                    width: "44px",
+                    height: "26px",
+                    borderRadius: "13px",
+                    background: isPublic
+                      ? "var(--foreground)"
+                      : "var(--border-color)",
+                    position: "relative",
+                    cursor: "pointer",
+                    transition: "background 0.2s",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "3px",
+                      left: isPublic ? "21px" : "3px",
+                      width: "20px",
+                      height: "20px",
+                      borderRadius: "50%",
+                      background: "#fff",
+                      transition: "left 0.2s",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                    }}
+                  />
+                </div>
+              </div>
               <div style={{ display: "flex", gap: "8px" }}>
                 <button
                   onClick={handleSave}
@@ -553,9 +754,9 @@ export default function PostCard({
             display: "flex",
             flexDirection: "column",
             gap: "4px",
-            fontFamily: "'Cormorant Garamond', serif",
+            fontFamily: "'Libre Baskerville', serif",
+            fontWeight: 400,
             fontStyle: "italic",
-            fontWeight: 300,
             paddingLeft: "1.5rem",
             borderLeft: "0.5px solid var(--border-color)",
             minWidth: "160px",

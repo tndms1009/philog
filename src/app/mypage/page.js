@@ -2,16 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import GridView from "../components/GridView";
 import PostCard from "../components/PostCard";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-);
+import supabase from "../lib/supabase";
 
 export default function MyPage() {
   const router = useRouter();
@@ -26,7 +21,8 @@ export default function MyPage() {
   const [saving, setSaving] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(null);
-
+  const [showAbout, setShowAbout] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) {
@@ -84,6 +80,51 @@ export default function MyPage() {
     router.push("/");
   }
 
+  async function handleWithdraw() {
+    const confirmed = window.confirm(
+      "정말 탈퇴하시겠어요?\n내가 올린 모든 사진이 삭제되고 복구할 수 없어요.",
+    );
+    if (!confirmed) return;
+
+    setWithdrawing(true);
+    try {
+      // 1. 내 게시물의 이미지 Storage에서 삭제
+      const { data: myPosts } = await supabase
+        .from("posts")
+        .select("image_url")
+        .eq("user_id", user.id);
+
+      if (myPosts && myPosts.length > 0) {
+        const fileNames = myPosts
+          .map((p) => {
+            const url = p.image_url;
+            return url.split("/photos/")[1];
+          })
+          .filter(Boolean);
+
+        if (fileNames.length > 0) {
+          await supabase.storage.from("photos").remove(fileNames);
+        }
+      }
+
+      // 2. DB에서 게시물 삭제
+      await supabase.from("posts").delete().eq("user_id", user.id);
+
+      // 3. 프로필 삭제
+      await supabase.from("profiles").delete().eq("id", user.id);
+
+      // 4. 계정 삭제
+      const { error } = await supabase.rpc("delete_user");
+      if (error) throw error;
+
+      alert("탈퇴가 완료됐어요.");
+      router.push("/");
+    } catch (err) {
+      alert("탈퇴 실패: " + err.message);
+    } finally {
+      setWithdrawing(false);
+    }
+  }
   function formatDate(dateStr) {
     if (!dateStr) return "";
     const d = new Date(dateStr);
@@ -197,8 +238,7 @@ export default function MyPage() {
         </div>
       ) : (
         <>
-          <Header />
-
+          <Header showAbout={false} />
           {/* 프로필 영역 */}
           <div
             className="px-6 py-6"
@@ -412,6 +452,21 @@ export default function MyPage() {
               }}
             >
               로그아웃
+            </button>
+            <button
+              onClick={() => {
+                setShowSettings(false);
+                handleWithdraw();
+              }}
+              disabled={withdrawing}
+              className="w-full px-6 py-4 text-left text-sm bg-transparent border-none cursor-pointer"
+              style={{
+                borderBottom: "0.5px solid var(--border-color)",
+                color: "#e24b4a",
+                opacity: 0.6,
+              }}
+            >
+              {withdrawing ? "탈퇴 중..." : "회원 탈퇴"}
             </button>
             <button
               onClick={() => setShowSettings(false)}

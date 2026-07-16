@@ -4,14 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import exifr from "exifr";
 import getRecipe from "fuji-recipes";
-import { createClient } from "@supabase/supabase-js";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-);
+import supabase from "../lib/supabase";
 
 export default function Upload() {
   const router = useRouter();
@@ -22,13 +17,63 @@ export default function Upload() {
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [isPublic, setIsPublic] = useState(true);
+
+  async function compressImage(file) {
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const MAX_SIZE = 1920;
+        let { width, height } = img;
+
+        // 비율 유지하며 리사이징
+        if (width > MAX_SIZE || height > MAX_SIZE) {
+          if (width > height) {
+            height = Math.round((height * MAX_SIZE) / width);
+            width = MAX_SIZE;
+          } else {
+            width = Math.round((width * MAX_SIZE) / height);
+            height = MAX_SIZE;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            const compressedFile = new File([blob], file.name, {
+              type: "image/jpeg",
+              lastModified: Date.now(),
+            });
+            URL.revokeObjectURL(url);
+            console.log(
+              `압축 전: ${(file.size / 1024 / 1024).toFixed(2)}MB → 압축 후: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`,
+            );
+            resolve(compressedFile);
+          },
+          "image/jpeg",
+          0.85, // 품질 85%
+        );
+      };
+      img.src = url;
+    });
+  }
 
   async function handleFileChange(e) {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
 
-    setFile(selectedFile);
+    // EXIF 파싱은 원본으로 먼저
     setPreview(URL.createObjectURL(selectedFile));
+
+    // 이미지 압축
+    const compressed = await compressImage(selectedFile);
+    setFile(compressed);
 
     try {
       const data = await exifr.parse(selectedFile, {
@@ -131,6 +176,7 @@ export default function Upload() {
         taken_at: exifData?.DateTimeOriginal || null,
         user_id: user?.id || null,
         tags: tags.length > 0 ? tags : null,
+        is_public: isPublic,
         dynamic_range: exifData?.DynamicRange || null,
         white_balance: exifData?.WhiteBalance || null,
         highlight:
@@ -174,7 +220,7 @@ export default function Upload() {
 
   return (
     <div style={{ maxWidth: "900px", margin: "0 auto" }} className="main-wrap">
-      <Header />
+      <Header showAbout={false} />
 
       <div
         style={{
@@ -393,7 +439,68 @@ export default function Upload() {
             ))}
           </div>
         )}
-
+        {/* 공개/비공개 토글 */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 0",
+            marginBottom: "1rem",
+            borderTop: "1px solid var(--border-color)",
+            borderBottom: "1px solid var(--border-color)",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: "14px",
+                color: "var(--foreground)",
+                fontWeight: 500,
+              }}
+            >
+              {isPublic ? "전체 공개" : "나만 보기"}
+            </div>
+            <div
+              style={{
+                fontSize: "12px",
+                color: "var(--text-tertiary)",
+                marginTop: "2px",
+              }}
+            >
+              {isPublic ? "모든 사람이 볼 수 있어요" : "나만 볼 수 있어요"}
+            </div>
+          </div>
+          <div
+            onClick={() => setIsPublic(!isPublic)}
+            style={{
+              width: "48px",
+              height: "28px",
+              borderRadius: "14px",
+              background: isPublic
+                ? "var(--foreground)"
+                : "var(--border-color)",
+              position: "relative",
+              cursor: "pointer",
+              transition: "background 0.2s",
+              flexShrink: 0,
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: "3px",
+                left: isPublic ? "23px" : "3px",
+                width: "22px",
+                height: "22px",
+                borderRadius: "50%",
+                background: "#fff",
+                transition: "left 0.2s",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+              }}
+            />
+          </div>
+        </div>
         {/* 업로드 버튼 */}
         <button
           onClick={handleUpload}

@@ -4,6 +4,19 @@ export default function GridView({ posts, selectedTag, onPostClick }) {
   const filtered = posts.filter(
     (post) => !selectedTag || (post.tags && post.tags.includes(selectedTag)),
   );
+  if (!posts.length)
+    return (
+      <p
+        style={{
+          textAlign: "center",
+          padding: "3rem 0",
+          color: "var(--text-tertiary)",
+          fontSize: "14px",
+        }}
+      >
+        불러오는 중...
+      </p>
+    );
 
   return (
     <div
