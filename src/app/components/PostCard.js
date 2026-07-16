@@ -282,50 +282,6 @@ export default function PostCard({
               </div>
             </div>
           </div>
-          {/* 공개/비공개 토글 */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "10px 0",
-              marginBottom: "10px",
-              borderTop: "0.5px solid var(--border-color)",
-              borderBottom: "0.5px solid var(--border-color)",
-            }}
-          >
-            <span style={{ fontSize: "13px", color: "var(--foreground)" }}>
-              {isPublic ? "전체 공개" : "나만 보기"}
-            </span>
-            <div
-              onClick={() => setIsPublic(!isPublic)}
-              style={{
-                width: "44px",
-                height: "26px",
-                borderRadius: "13px",
-                background: isPublic
-                  ? "var(--foreground)"
-                  : "var(--border-color)",
-                position: "relative",
-                cursor: "pointer",
-                transition: "background 0.2s",
-              }}
-            >
-              <div
-                style={{
-                  position: "absolute",
-                  top: "3px",
-                  left: isPublic ? "21px" : "3px",
-                  width: "20px",
-                  height: "20px",
-                  borderRadius: "50%",
-                  background: "#fff",
-                  transition: "left 0.2s",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                }}
-              />
-            </div>
-          </div>
           {/* 버튼 영역 */}
           <div style={{ display: "flex", gap: "10px" }}>
             {/* 본인 글일 때만 저장 버튼 표시 */}
