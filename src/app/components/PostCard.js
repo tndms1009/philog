@@ -80,109 +80,75 @@ export default function PostCard({
 
   async function handleSaveImage() {
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    let newTab = null;
 
-    // 폴라로이드 정보 준비
-    const cameraText = post.camera ? `FUJIFILM ${post.camera}` : "PHILOG.";
-    const exifText =
-      [post.iso, post.aperture, post.shutter_speed]
-        .filter(Boolean)
-        .join(" · ") || "";
-    const dateText = post.taken_at
-      ? new Date(post.taken_at).toLocaleDateString("ko-KR", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        })
-      : "";
-
-    const newTab = window.open("", "_blank");
-    if (!newTab) {
-      alert("팝업이 차단됐어요!\n브라우저 설정에서 팝업을 허용해주세요.");
-      return;
+    if (isIOS) {
+      newTab = window.open("", "_blank");
+      if (newTab) {
+        newTab.document.write(`
+        <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>저장 중...</title>
+            <style>
+              body { margin: 0; background: #000; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+              p { color: #fff; font-size: 14px; font-family: sans-serif; text-align: center; }
+            </style>
+          </head>
+          <body><p>이미지 준비 중...<br>잠시만 기다려주세요</p></body>
+        </html>
+      `);
+        newTab.document.close();
+      }
     }
 
-    newTab.document.write(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Philog</title>
-        <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Libre+Baskerville:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
-        <style>
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          body {
-            background: #111;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-            gap: 16px;
-          }
-          .polaroid {
-            background: #fff;
-            padding: 8px 8px 0 8px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.4);
-            max-width: 360px;
-            width: 100%;
-          }
-          .polaroid img {
-            width: 100%;
-            display: block;
-          }
-          .info {
-            padding: 8px 6px 12px;
-            text-align: right;
-          }
-          .camera {
-            font-family: 'Roboto', sans-serif;
-            font-size: 13px;
-            color: #1a1a1a;
-            letter-spacing: 0.06em;
-            margin-bottom: 3px;
-          }
-          .camera strong { font-weight: 700; }
-          .exif, .date, .handle {
-            font-family: 'Libre Baskerville', serif;
-            font-style: italic;
-            color: #555;
-            margin-bottom: 2px;
-          }
-          .exif { font-size: 11px; }
-          .date { font-size: 11px; }
-          .handle { font-size: 10px; color: #aaa; margin-top: 2px; }
-          .guide {
-            color: #fff;
-            font-size: 14px;
-            font-family: sans-serif;
-            text-align: center;
-            line-height: 1.8;
-          }
-          .guide strong { display: block; font-size: 16px; margin-bottom: 4px; }
-        </style>
-      </head>
-      <body>
-        <div class="polaroid">
-          <img src="${post.image_url}" crossorigin="anonymous" />
-          <div class="info">
-            <div class="camera">
-              <strong>FUJIFILM</strong> ${post.camera || ""}
-            </div>
-            ${exifText ? `<div class="exif">${exifText}</div>` : ""}
-            ${dateText ? `<div class="date">${dateText}</div>` : ""}
-            <div class="handle">@philog</div>
-          </div>
+    try {
+      // 프록시를 통해 이미지 base64 변환
+      const imgEl = polaroidRef.current.querySelector("img");
+      if (imgEl) {
+        const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(post.image_url)}`;
+        const response = await fetch(proxyUrl);
+        const blob = await response.blob();
+        const base64 = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(blob);
+        });
+        imgEl.src = base64;
+        await new Promise((r) => setTimeout(r, 300));
+      }
+
+      const canvas = await html2canvas(polaroidRef.current, {
+        useCORS: true,
+        allowTaint: true,
+        scale: 2,
+        backgroundColor: "#ffffff",
+        logging: false,
+      });
+
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+
+      if (isIOS && newTab) {
+        newTab.document.body.innerHTML = `
+        <div style="margin:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:16px;padding:20px;box-sizing:border-box;">
+          <p style="color:#fff;font-size:14px;font-family:sans-serif;text-align:center;line-height:1.8;margin:0;">
+            이미지를 <strong>길게 눌러서</strong><br>사진 앱에 저장하세요
+          </p>
+          <img src="${dataUrl}" style="max-width:100%;border-radius:4px;" />
         </div>
-        <p class="guide">
-          <strong>이미지를 길게 눌러서 저장하세요</strong>
-          사진 앱에 바로 저장할 수 있어요
-        </p>
-      </body>
-    </html>
-  `);
-    newTab.document.close();
+      `;
+      } else {
+        const link = document.createElement("a");
+        link.download = `philog_${post.id}.jpg`;
+        link.href = dataUrl;
+        link.click();
+      }
+    } catch (err) {
+      if (newTab) newTab.close();
+      alert("저장 실패: " + err.message);
+    }
   }
+
   return (
     <div
       ref={cardRef}
