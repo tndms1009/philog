@@ -81,6 +81,20 @@ export default function PostCard({
   async function handleSaveImage() {
     if (!polaroidRef.current) return;
     try {
+      // 이미지를 먼저 base64로 변환
+      const imgEl = polaroidRef.current.querySelector("img");
+      if (imgEl) {
+        const response = await fetch(imgEl.src);
+        const blob = await response.blob();
+        const base64 = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(blob);
+        });
+        imgEl.src = base64;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+
       const canvas = await html2canvas(polaroidRef.current, {
         useCORS: true,
         allowTaint: true,
