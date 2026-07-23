@@ -216,6 +216,7 @@ export default function GridPage() {
                 opacity: selectedIndex === 0 ? 0.3 : 1,
                 boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
               }}
+              aria-label="이전 사진"
             >
               ←
             </button>
@@ -234,6 +235,7 @@ export default function GridPage() {
                   !hasMore && selectedIndex === posts.length - 1 ? 0.3 : 1,
                 boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
               }}
+              aria-label="이후 사진"
             >
               {loadingMore ? "..." : "→"}
             </button>
@@ -252,6 +254,7 @@ export default function GridPage() {
               color: "var(--background)",
               boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
             }}
+            aria-label="돌아가기"
           >
             ←
           </button>

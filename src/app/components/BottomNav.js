@@ -120,14 +120,17 @@ export default function BottomNav() {
   const tabs = [
     {
       id: "home",
+      label: "피드 홈",
       action: () => router.push("/"),
     },
     {
       id: "grid",
+      label: "모아보기",
       action: () => router.push("/grid"),
     },
     {
       id: "upload",
+      label: "사진 업로드",
       action: () => {
         if (!user) router.push("/login");
         else router.push("/upload");
@@ -135,13 +138,13 @@ export default function BottomNav() {
     },
     {
       id: "mypage",
+      label: "마이페이지",
       action: () => {
         if (!user) router.push("/login");
         else router.push("/mypage");
       },
     },
   ];
-
   return (
     <div
       className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[900px] h-14 border-t flex items-center justify-around z-50"
@@ -156,6 +159,8 @@ export default function BottomNav() {
           <button
             key={tab.id}
             onClick={tab.action}
+            aria-label={tab.label}
+            aria-current={active ? "page" : undefined}
             className="flex-1 h-full flex items-center justify-center border-none bg-transparent cursor-pointer transition-colors"
             style={{
               color: active ? "var(--foreground)" : "var(--nav-inactive)",

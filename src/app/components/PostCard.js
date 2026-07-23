@@ -92,7 +92,7 @@ export default function PostCard({
           reader.readAsDataURL(blob);
         });
         imgEl.src = base64;
-        await new Promise((r) => setTimeout(r, 100));
+        await new Promise((r) => setTimeout(r, 200));
       }
 
       const canvas = await html2canvas(polaroidRef.current, {
@@ -103,40 +103,55 @@ export default function PostCard({
         logging: false,
       });
 
-      // 모바일 환경 체크
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
       if (isMobile) {
-        // 모바일 — 새 탭에서 이미지 열기 (길게 눌러서 저장)
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
-        const newTab = window.open();
-        if (newTab) {
-          newTab.document.write(`
-          <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1">
-              <title>Philog 저장</title>
-              <style>
-                body { margin: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 16px; }
-                img { max-width: 100%; }
-                p { color: #fff; font-size: 14px; font-family: sans-serif; text-align: center; padding: 0 20px; }
-              </style>
-            </head>
-            <body>
-              <p>이미지를 길게 눌러서 저장하세요</p>
-              <img src="${dataUrl}" />
-            </body>
-          </html>
-        `);
-          newTab.document.close();
-        } else {
-          alert("팝업이 차단됐어요. 브라우저 팝업 허용 후 다시 시도해주세요.");
-        }
+        // 모바일 — a 태그로 직접 다운로드 시도
+        const link = document.createElement("a");
+        link.href = dataUrl;
+        link.download = `philog_${post.id}.jpg`;
+        link.style.display = "none";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // iOS는 a 태그 다운로드가 안 되므로 새 탭으로 fallback
+        setTimeout(() => {
+          const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+          if (isIOS) {
+            const newTab = window.open("", "_blank");
+            if (newTab) {
+              newTab.document.write(`
+              <html>
+                <head>
+                  <meta name="viewport" content="width=device-width, initial-scale=1">
+                  <title>Philog 저장</title>
+                  <style>
+                    body { margin: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 16px; }
+                    img { max-width: 100%; }
+                    p { color: #fff; font-size: 14px; font-family: sans-serif; text-align: center; padding: 0 20px; line-height: 1.6; }
+                  </style>
+                </head>
+                <body>
+                  <p>이미지를 길게 눌러서<br>사진 앱에 저장하세요</p>
+                  <img src="${dataUrl}" />
+                </body>
+              </html>
+            `);
+              newTab.document.close();
+            } else {
+              alert(
+                "팝업이 차단됐어요!\n브라우저 설정에서 팝업을 허용해주세요.",
+              );
+            }
+          }
+        }, 500);
       } else {
         // PC — 바로 다운로드
         const link = document.createElement("a");
         link.download = `philog_${post.id}.jpg`;
-        link.href = canvas.toDataURL("image/jpeg", 0.95);
+        link.href = dataUrl;
         link.click();
       }
     } catch (err) {
@@ -350,7 +365,7 @@ export default function PostCard({
       >
         <img
           src={`${post.image_url}?width=900&quality=80`}
-          alt=""
+          alt={post.memo || `${post.camera || "PHILOG"} 촬영 사진`}
           loading="lazy"
           style={{ width: "100%", display: "block" }}
         />

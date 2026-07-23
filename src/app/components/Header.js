@@ -81,6 +81,7 @@ export default function Header({
               alignItems: "center",
               justifyContent: "center",
             }}
+            aria-label="서비스 소개"
           >
             ?
           </button>
